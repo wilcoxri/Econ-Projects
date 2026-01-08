@@ -282,15 +282,18 @@ def create_sparkline(month_labels, growth_rates, consensus_growth=None):
 
     labels, values = zip(*valid_data)
 
+    # Use shorter month labels (first letter only)
+    short_labels = [l[0] for l in labels]
+
     fig = go.Figure()
 
     # Add the line
     fig.add_trace(go.Scatter(
-        x=list(labels),
+        x=list(short_labels),
         y=list(values),
         mode='lines+markers',
         line=dict(color='#112347', width=2),
-        marker=dict(size=6, color='#112347'),
+        marker=dict(size=5, color='#112347'),
         showlegend=False
     ))
 
@@ -300,26 +303,30 @@ def create_sparkline(month_labels, growth_rates, consensus_growth=None):
             y=consensus_growth,
             line_dash="dot",
             line_color="#be3c3f",
-            line_width=2
+            line_width=1.5
         )
 
     fig.update_layout(
-        height=60,
-        margin=dict(l=5, r=5, t=5, b=15),
+        height=50,
+        width=120,
+        margin=dict(l=2, r=2, t=2, b=12),
         paper_bgcolor="white",
         plot_bgcolor="white",
         xaxis=dict(
             showgrid=False,
             showticklabels=True,
-            tickfont=dict(size=8),
+            tickfont=dict(size=7),
+            fixedrange=True,
         ),
         yaxis=dict(
             showgrid=False,
             showticklabels=False,
             zeroline=True,
             zerolinecolor='#ccc',
-            zerolinewidth=1
+            zerolinewidth=1,
+            fixedrange=True,
         ),
+        autosize=False,
     )
 
     return fig
