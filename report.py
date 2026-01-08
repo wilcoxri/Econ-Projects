@@ -378,25 +378,35 @@ def calculate_average_probability(df, rev_type, consensus_total, consensus_growt
     return None
 
 def get_status_html(probability):
-    """Create a simple HTML status indicator for PDF-friendly output"""
+    """Create a visual gauge-style indicator for PDF-friendly output"""
     if probability is None:
         return "N/A"
 
-    # Determine status and color
+    # Determine status and colors
     if probability < 50:
         status = "Below Target"
-        color = "#e74c3c"  # Red
-        bg_color = "#ffebee"
+        marker_color = "#e74c3c"  # Red
     elif probability <= 75:
         status = "On Target"
-        color = "#f39c12"  # Orange
-        bg_color = "#fff8e1"
+        marker_color = "#f39c12"  # Orange
     else:
         status = "Above Target"
-        color = "#2ecc71"  # Green
-        bg_color = "#e8f5e9"
+        marker_color = "#2ecc71"  # Green
 
-    return f'<div style="background-color: {bg_color}; color: {color}; padding: 8px 12px; border-radius: 5px; text-align: center; font-weight: bold; border: 2px solid {color};">{status}</div>'
+    # Calculate marker position (0-100%)
+    marker_pos = min(max(probability, 0), 100)
+
+    return f'''
+    <div style="margin: 5px 0;">
+        <div style="text-align: center; font-weight: bold; color: {marker_color}; font-size: 11px; margin-bottom: 3px;">{status}</div>
+        <div style="position: relative; height: 16px; border-radius: 8px; overflow: hidden; border: 1px solid #ccc;">
+            <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 50%; background: linear-gradient(to right, #ffcdd2, #ffebee);"></div>
+            <div style="position: absolute; left: 50%; top: 0; bottom: 0; width: 25%; background: linear-gradient(to right, #fff8e1, #fff3cd);"></div>
+            <div style="position: absolute; left: 75%; top: 0; bottom: 0; width: 25%; background: linear-gradient(to right, #e8f5e9, #c8e6c9);"></div>
+            <div style="position: absolute; left: {marker_pos}%; top: 0; bottom: 0; width: 4px; background: {marker_color}; transform: translateX(-50%); box-shadow: 0 0 3px {marker_color};"></div>
+        </div>
+    </div>
+    '''
 
 # Load data
 try:
