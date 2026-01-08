@@ -270,66 +270,65 @@ def get_monthly_growth_rates(df, rev_type, num_months=4):
 
     return month_labels, growth_rates
 
-def create_sparkline(month_labels, growth_rates, consensus_growth=None):
-    """Create a small sparkline chart for growth rate trend"""
+def create_sparkline_html(month_labels, growth_rates, consensus_growth=None):
+    """Create HTML-based sparkline that renders reliably in PDF"""
     if not growth_rates or all(g is None for g in growth_rates):
-        return None
+        return "N/A"
 
     # Filter out None values
     valid_data = [(m, g) for m, g in zip(month_labels, growth_rates) if g is not None]
     if not valid_data:
-        return None
+        return "N/A"
 
     labels, values = zip(*valid_data)
+    short_labels = [l[0] for l in labels]  # First letter only
 
-    # Use shorter month labels (first letter only)
-    short_labels = [l[0] for l in labels]
+    # Calculate scaling for the bars
+    min_val = min(values)
+    max_val = max(values)
 
-    fig = go.Figure()
-
-    # Add the line
-    fig.add_trace(go.Scatter(
-        x=list(short_labels),
-        y=list(values),
-        mode='lines+markers',
-        line=dict(color='#112347', width=2),
-        marker=dict(size=5, color='#112347'),
-        showlegend=False
-    ))
-
-    # Add consensus forecast line if available
+    # Include consensus in range if provided
     if consensus_growth is not None:
-        fig.add_hline(
-            y=consensus_growth,
-            line_dash="dot",
-            line_color="#be3c3f",
-            line_width=1.5
-        )
+        min_val = min(min_val, consensus_growth)
+        max_val = max(max_val, consensus_growth)
 
-    fig.update_layout(
-        height=50,
-        width=120,
-        margin=dict(l=2, r=2, t=2, b=12),
-        paper_bgcolor="white",
-        plot_bgcolor="white",
-        xaxis=dict(
-            showgrid=False,
-            showticklabels=True,
-            tickfont=dict(size=7),
-            fixedrange=True,
-        ),
-        yaxis=dict(
-            showgrid=False,
-            showticklabels=False,
-            zeroline=True,
-            zerolinecolor='#ccc',
-            zerolinewidth=1,
-            fixedrange=True,
-        ),
-        autosize=False,
-    )
+    val_range = max_val - min_val if max_val != min_val else 1
 
-    return fig
+    # Build HTML bars
+    bars_html = ""
+    for i, (label, val) in enumerate(zip(short_labels, values)):
+        # Normalize to 0-100% height, with some padding
+        height_pct = ((val - min_val) / val_range) * 70 + 15  # 15-85% range
+
+        # Color based on trend (green if above consensus, red if below)
+        if consensus_growth is not None:
+            color = "#2ecc71" if val >= consensus_growth else "#e74c3c"
+        else:
+            color = "#112347"
+
+        bars_html += f'''
+        <div style="display: flex; flex-direction: column; align-items: center; flex: 1;">
+            <div style="height: 35px; width: 100%; display: flex; align-items: flex-end; justify-content: center;">
+                <div style="width: 8px; height: {height_pct}%; background: {color}; border-radius: 2px;"></div>
+            </div>
+            <div style="font-size: 8px; color: #666; margin-top: 2px;">{label}</div>
+        </div>
+        '''
+
+    # Add consensus line indicator if available
+    consensus_indicator = ""
+    if consensus_growth is not None:
+        consensus_height = ((consensus_growth - min_val) / val_range) * 70 + 15
+        consensus_indicator = f'''
+        <div style="position: absolute; left: 0; right: 0; bottom: {consensus_height + 18}%; height: 1px; border-top: 2px dashed #be3c3f;"></div>
+        '''
+
+    return f'''
+    <div style="position: relative; display: flex; gap: 2px; padding: 2px; min-width: 80px;">
+        {bars_html}
+        {consensus_indicator}
+    </div>
+    '''
 
 def calculate_probability_method1(df, rev_type, consensus_total):
     """Method 1: Model Forecast Distribution"""
@@ -608,11 +607,8 @@ try:
         with col3:
             st.markdown(consensus_str)
         with col4:
-            sparkline_fig = create_sparkline(month_labels, growth_rates, consensus_growth)
-            if sparkline_fig:
-                st.plotly_chart(sparkline_fig, use_container_width=True, config={'displayModeBar': False})
-            else:
-                st.markdown("N/A")
+            sparkline_html = create_sparkline_html(month_labels, growth_rates, consensus_growth)
+            st.markdown(sparkline_html, unsafe_allow_html=True)
         with col5:
             status_html = get_status_html(probability)
             st.markdown(status_html, unsafe_allow_html=True)
