@@ -221,16 +221,8 @@ try:
     # Build metrics table
     st.markdown('<div class="section-header">FY 2026 Growth Rate Summary</div>', unsafe_allow_html=True)
 
-    table_html = """
-    <table class="metric-table">
-        <tr>
-            <th>Revenue Source</th>
-            <th>Current YTD Growth</th>
-            <th>Consensus Forecast</th>
-            <th>Difference</th>
-        </tr>
-    """
-
+    # Build data for table
+    table_data = []
     for display_name, rev_key in revenue_types:
         current_growth = get_current_growth(df, rev_key)
         consensus_growth = official_growth_forecast.get(rev_key, None)
@@ -240,22 +232,24 @@ try:
 
         if current_growth is not None and consensus_growth is not None:
             diff = current_growth - consensus_growth
-            diff_class = "positive" if diff >= 0 else "negative"
-            diff_str = f'<span class="{diff_class}">{diff:+.2f}%</span>'
+            diff_str = f"{diff:+.2f}%"
         else:
             diff_str = "N/A"
 
-        table_html += f"""
-        <tr>
-            <td><strong>{display_name}</strong></td>
-            <td>{current_str}</td>
-            <td>{consensus_str}</td>
-            <td>{diff_str}</td>
-        </tr>
-        """
+        table_data.append({
+            "Revenue Source": display_name,
+            "Current YTD Growth": current_str,
+            "Consensus Forecast": consensus_str,
+            "Difference": diff_str
+        })
 
-    table_html += "</table>"
-    st.markdown(table_html, unsafe_allow_html=True)
+    # Create DataFrame and display
+    table_df = pd.DataFrame(table_data)
+    st.dataframe(
+        table_df,
+        use_container_width=True,
+        hide_index=True
+    )
 
     # Commentary sections
     col1, col2 = st.columns(2)
