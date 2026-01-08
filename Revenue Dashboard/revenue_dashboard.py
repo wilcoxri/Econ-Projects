@@ -92,7 +92,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # Title and description
-st.title("GOPB Revenue Collections Dashboard")
+st.title(f"GOPB Revenue Collections Dashboard - {datetime.now().strftime('%B %d, %Y')}")
 st.markdown("---")
 
 # Load official forecast data
