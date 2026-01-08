@@ -675,11 +675,8 @@ def create_probability_needle(probability, fund_name, prob_min=None, prob_max=No
         }
     ))
 
-    # Build title with confidence range if available
-    if prob_min is not None and prob_max is not None:
-        title_text = f"{fund_name}<br><span style='font-size:12px;color:#666;font-weight:normal'>Probability of Reaching Forecast</span><br><span style='font-size:11px;color:#888;font-weight:normal'>Range: {prob_min:.0f}% - {prob_max:.0f}%</span>"
-    else:
-        title_text = f"{fund_name}<br><span style='font-size:12px;color:#666;font-weight:normal'>Probability of Reaching Forecast</span>"
+    # Build title without range (range will be shown as annotation above the number)
+    title_text = f"{fund_name}<br><span style='font-size:12px;color:#666;font-weight:normal'>Probability of Reaching Forecast</span>"
 
     fig.update_layout(
         height=260,
@@ -695,6 +692,20 @@ def create_probability_needle(probability, fund_name, prob_min=None, prob_max=No
             'font': {'size': 18, 'color': COLORS['primary'], 'family': 'Arial Black'}
         }
     )
+
+    # Add range annotation directly above the point estimate
+    if prob_min is not None and prob_max is not None:
+        fig.add_annotation(
+            text=f"Range: {prob_min:.0f}% - {prob_max:.0f}%",
+            x=0.5,
+            y=0.35,
+            xref="paper",
+            yref="paper",
+            showarrow=False,
+            font=dict(size=11, color="#888"),
+            xanchor="center",
+            yanchor="bottom"
+        )
 
     return fig
 
