@@ -19,7 +19,7 @@ st.markdown("""
     @media print {
         .stApp header, .stApp footer, [data-testid="stToolbar"],
         [data-testid="stDecoration"], [data-testid="stStatusWidget"],
-        .stTextArea label, button, [data-testid="stSidebar"] {
+        .stTextArea label, button, [data-testid="stSidebar"], .no-print {
             display: none !important;
         }
         .main .block-container {
@@ -28,28 +28,36 @@ st.markdown("""
         }
     }
 
+    /* Reduce Streamlit default spacing */
+    .block-container {
+        padding-top: 1rem !important;
+    }
+    div[data-testid="stVerticalBlock"] > div {
+        padding-bottom: 0.25rem !important;
+    }
+
     /* General styling */
     .report-title {
-        font-size: 24px;
+        font-size: 22px;
         font-weight: bold;
         color: #112347;
         text-align: center;
-        margin-bottom: 5px;
+        margin-bottom: 3px;
     }
     .report-date {
-        font-size: 14px;
+        font-size: 13px;
         color: #666;
         text-align: center;
-        margin-bottom: 20px;
+        margin-bottom: 10px;
     }
     .section-header {
-        font-size: 16px;
+        font-size: 14px;
         font-weight: bold;
         color: #112347;
         border-bottom: 2px solid #112347;
-        padding-bottom: 5px;
-        margin-top: 20px;
-        margin-bottom: 10px;
+        padding-bottom: 3px;
+        margin-top: 10px;
+        margin-bottom: 5px;
     }
     .commentary-box {
         border: 1px solid #ddd;
@@ -604,34 +612,31 @@ try:
         # Add separator line between rows
         st.markdown("<hr style='margin: 2px 0; border: 0.5px solid #ddd;'>", unsafe_allow_html=True)
 
-    st.markdown("---")
-
-    # Commentary sections
+    # Commentary sections - compact layout
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown('<div class="section-header">General Fund Commentary</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-weight: 600; font-size: 12px; margin-bottom: 2px;">General Fund Commentary</div>', unsafe_allow_html=True)
         gf_commentary = st.text_area(
             "General Fund Commentary",
-            value="• \n• \n• ",
-            height=150,
+            value="• \n• ",
+            height=80,
             label_visibility="collapsed",
             key="gf_commentary"
         )
 
     with col2:
-        st.markdown('<div class="section-header">Income Tax Fund Commentary</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-weight: 600; font-size: 12px; margin-bottom: 2px;">Income Tax Fund Commentary</div>', unsafe_allow_html=True)
         itf_commentary = st.text_area(
             "Income Tax Fund Commentary",
-            value="• \n• \n• ",
-            height=150,
+            value="• \n• ",
+            height=80,
             label_visibility="collapsed",
             key="itf_commentary"
         )
 
-    # Print instructions
-    st.markdown("---")
-    st.markdown("**To save as PDF:** Press `Ctrl+P` (or `Cmd+P` on Mac), select 'Save as PDF' as the destination.")
+    # Print instructions (hidden in print)
+    st.markdown("<div class='no-print' style='margin-top: 10px; font-size: 11px;'><b>To save as PDF:</b> Press Ctrl+P, select 'Save as PDF'</div>", unsafe_allow_html=True)
 
 except FileNotFoundError:
     st.error("Data files not found. Please ensure 'rev9.csv' and 'FY26 forecast.csv' are in the same directory.")
