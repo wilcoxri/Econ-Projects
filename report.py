@@ -377,65 +377,26 @@ def calculate_average_probability(df, rev_type, consensus_total, consensus_growt
         return np.mean(valid_probs)
     return None
 
-def create_status_gauge(probability, rev_name):
-    """Create a simplified gauge showing Below/On/Above Target"""
+def get_status_html(probability):
+    """Create a simple HTML status indicator for PDF-friendly output"""
     if probability is None:
-        return None
+        return "N/A"
 
     # Determine status and color
     if probability < 50:
         status = "Below Target"
         color = "#e74c3c"  # Red
+        bg_color = "#ffebee"
     elif probability <= 75:
         status = "On Target"
         color = "#f39c12"  # Orange
+        bg_color = "#fff8e1"
     else:
         status = "Above Target"
         color = "#2ecc71"  # Green
+        bg_color = "#e8f5e9"
 
-    fig = go.Figure(go.Indicator(
-        mode="gauge",
-        value=probability,
-        domain={'x': [0, 1], 'y': [0, 1]},
-        gauge={
-            'axis': {
-                'range': [0, 100],
-                'showticklabels': False,
-                'tickwidth': 0,
-            },
-            'bar': {'color': color, 'thickness': 0.3},
-            'bgcolor': "white",
-            'borderwidth': 1,
-            'bordercolor': "lightgray",
-            'steps': [
-                {'range': [0, 50], 'color': '#ffebee'},
-                {'range': [50, 75], 'color': '#fff8e1'},
-                {'range': [75, 100], 'color': '#e8f5e9'}
-            ],
-            'threshold': {
-                'line': {'color': color, 'width': 3},
-                'thickness': 0.75,
-                'value': probability
-            }
-        }
-    ))
-
-    fig.update_layout(
-        height=100,
-        margin=dict(l=10, r=10, t=30, b=10),
-        paper_bgcolor="white",
-        font={'family': "Arial"},
-        title={
-            'text': f"<b>{status}</b>",
-            'y': 0.85,
-            'x': 0.5,
-            'xanchor': 'center',
-            'yanchor': 'top',
-            'font': {'size': 12, 'color': color}
-        }
-    )
-
-    return fig
+    return f'<div style="background-color: {bg_color}; color: {color}; padding: 8px 12px; border-radius: 5px; text-align: center; font-weight: bold; border: 2px solid {color};">{status}</div>'
 
 # Load data
 try:
@@ -498,11 +459,8 @@ try:
         with col3:
             st.markdown(consensus_str)
         with col4:
-            if probability is not None:
-                gauge_fig = create_status_gauge(probability, display_name)
-                st.plotly_chart(gauge_fig, use_container_width=True, config={'displayModeBar': False})
-            else:
-                st.markdown("N/A")
+            status_html = get_status_html(probability)
+            st.markdown(status_html, unsafe_allow_html=True)
 
         # Add separator line between rows
         st.markdown("<hr style='margin: 2px 0; border: 0.5px solid #ddd;'>", unsafe_allow_html=True)
