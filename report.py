@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -608,7 +609,10 @@ try:
             st.markdown(consensus_str)
         with col4:
             sparkline_html = create_sparkline_html(month_labels, growth_rates, consensus_growth)
-            st.markdown(sparkline_html, unsafe_allow_html=True)
+            if sparkline_html == "N/A":
+                st.markdown("N/A")
+            else:
+                components.html(sparkline_html, height=55)
         with col5:
             status_html = get_status_html(probability)
             st.markdown(status_html, unsafe_allow_html=True)
