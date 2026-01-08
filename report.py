@@ -270,44 +270,37 @@ def get_monthly_growth_rates(df, rev_type, num_months=4):
 
     return month_labels, growth_rates
 
-def create_sparkline_text(month_labels, growth_rates, consensus_growth=None):
-    """Create text-based sparkline using Unicode blocks that renders in PDF"""
+def create_trend_html(month_labels, growth_rates, consensus_growth=None):
+    """Create mini colored numbers showing trend"""
     if not growth_rates or all(g is None for g in growth_rates):
-        return "N/A", []
+        return "N/A"
 
     # Filter out None values
     valid_data = [(m, g) for m, g in zip(month_labels, growth_rates) if g is not None]
     if not valid_data:
-        return "N/A", []
+        return "N/A"
 
     labels, values = zip(*valid_data)
-    short_labels = [l[0] for l in labels]  # First letter only
 
-    # Unicode block characters from shortest to tallest
-    blocks = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█']
-
-    # Calculate scaling
-    min_val = min(values)
-    max_val = max(values)
-    val_range = max_val - min_val if max_val != min_val else 1
-
-    # Build the sparkline with colors
-    bar_data = []
-    for label, val in zip(short_labels, values):
-        # Map value to block index (0-7)
-        idx = int(((val - min_val) / val_range) * 7)
-        idx = min(max(idx, 0), 7)
-        block = blocks[idx]
-
-        # Determine color
+    # Build HTML with colored numbers
+    parts = []
+    for label, val in zip(labels, values):
+        # Determine color based on consensus
         if consensus_growth is not None:
             color = "#2ecc71" if val >= consensus_growth else "#e74c3c"
         else:
             color = "#112347"
 
-        bar_data.append((label, block, color, val))
+        # Format the value
+        val_str = f"{val:+.1f}"
+        parts.append(f'<span style="color:{color}; font-size: 11px; font-weight: 500;">{val_str}</span>')
 
-    return bar_data, values
+    # Join with arrows to show progression
+    trend_html = f'''<div style="white-space: nowrap;">
+        {" → ".join(parts)}
+    </div>'''
+
+    return trend_html
 
 def calculate_probability_method1(df, rev_type, consensus_total):
     """Method 1: Model Forecast Distribution"""
@@ -586,20 +579,8 @@ try:
         with col3:
             st.markdown(consensus_str)
         with col4:
-            bar_data, values = create_sparkline_text(month_labels, growth_rates, consensus_growth)
-            if bar_data == "N/A":
-                st.markdown("N/A")
-            else:
-                # Build HTML with colored Unicode blocks
-                sparkline_parts = []
-                for label, block, color, val in bar_data:
-                    sparkline_parts.append(f'<span style="color:{color}; font-size: 18px;">{block}</span>')
-                labels_row = ' '.join([f'<span style="font-size: 9px; color: #666;">{d[0]}</span>' for d in bar_data])
-                sparkline_html = f'''<div style="line-height: 1;">
-                    <div>{"".join(sparkline_parts)}</div>
-                    <div>{labels_row}</div>
-                </div>'''
-                st.markdown(sparkline_html, unsafe_allow_html=True)
+            trend_html = create_trend_html(month_labels, growth_rates, consensus_growth)
+            st.markdown(trend_html, unsafe_allow_html=True)
         with col5:
             status_html = get_status_html(probability)
             st.markdown(status_html, unsafe_allow_html=True)
