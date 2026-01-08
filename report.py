@@ -556,11 +556,11 @@ try:
     with header_col1:
         st.markdown("**Revenue Source**")
     with header_col2:
-        st.markdown("**Current YTD**")
+        st.markdown("**YTD Growth**")
     with header_col3:
-        st.markdown("**Forecast**")
+        st.markdown("**Consensus Forecast**")
     with header_col4:
-        st.markdown("**Trend (4 mo)**")
+        st.markdown("**4-Month Trend**")
     with header_col5:
         st.markdown("**Status**")
 
