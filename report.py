@@ -532,8 +532,9 @@ try:
         ('Sales and Use Tax (GF)', 'Sales and Use Tax (GF)'),
         ('General Fund', 'General Fund'),
         ('Individual Income Tax', 'Individual Income Tax'),
-        ('Corporate Tax & Gross Receipts', 'Corporate Tax & Gross Receipts'),
+        ('Corporate Income Tax', 'Corporate Tax & Gross Receipts'),
         ('Income Tax Fund', 'Income Tax Fund'),
+        ('GF/ITF', 'GF/ITF'),
     ]
 
     # Build metrics table
