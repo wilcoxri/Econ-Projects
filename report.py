@@ -197,6 +197,133 @@ def get_last_data_date(df, rev_type):
             return latest_data.iloc[-1]['date']
     return None
 
+def get_monthly_growth_rates(df, rev_type, num_months=4):
+    """Get growth rates for current day and same day of month for previous months"""
+    rev_type_data = df[df['rev'] == rev_type].copy()
+    year_col = 'y2026'
+    prior_year_col = 'y2025'
+
+    if year_col not in rev_type_data.columns or prior_year_col not in rev_type_data.columns:
+        return [], []
+
+    # Get the latest data point
+    latest_data = rev_type_data[
+        (rev_type_data[year_col].abs() > 0.01) &
+        (rev_type_data[prior_year_col].abs() > 0.01)
+    ].copy()
+
+    if len(latest_data) == 0:
+        return [], []
+
+    latest_date = latest_data.iloc[-1]['date']
+    current_day_of_month = latest_date.day
+
+    # Collect growth rates for current month and previous months
+    growth_rates = []
+    month_labels = []
+
+    for months_back in range(num_months - 1, -1, -1):
+        # Calculate target date (same day of month, months_back months ago)
+        target_month = latest_date.month - months_back
+        target_year = latest_date.year
+
+        while target_month <= 0:
+            target_month += 12
+            target_year -= 1
+
+        # Find data for this target month/day
+        month_data = rev_type_data[
+            (rev_type_data['date'].dt.month == target_month) &
+            (rev_type_data['date'].dt.year == target_year) &
+            (rev_type_data['date'].dt.day == current_day_of_month)
+        ]
+
+        if len(month_data) > 0:
+            row = month_data.iloc[0]
+            current_val = row[year_col]
+            prior_val = row[prior_year_col]
+
+            if abs(prior_val) > 0.01:
+                growth = ((current_val - prior_val) / prior_val) * 100
+                growth_rates.append(growth)
+                month_labels.append(pd.Timestamp(year=target_year, month=target_month, day=1).strftime('%b'))
+            else:
+                growth_rates.append(None)
+                month_labels.append(pd.Timestamp(year=target_year, month=target_month, day=1).strftime('%b'))
+        else:
+            # Try to find closest day in that month
+            month_data = rev_type_data[
+                (rev_type_data['date'].dt.month == target_month) &
+                (rev_type_data['date'].dt.year == target_year) &
+                (rev_type_data[year_col].abs() > 0.01) &
+                (rev_type_data[prior_year_col].abs() > 0.01)
+            ]
+            if len(month_data) > 0:
+                row = month_data.iloc[-1]  # Get last available day
+                current_val = row[year_col]
+                prior_val = row[prior_year_col]
+
+                if abs(prior_val) > 0.01:
+                    growth = ((current_val - prior_val) / prior_val) * 100
+                    growth_rates.append(growth)
+                    month_labels.append(pd.Timestamp(year=target_year, month=target_month, day=1).strftime('%b'))
+
+    return month_labels, growth_rates
+
+def create_sparkline(month_labels, growth_rates, consensus_growth=None):
+    """Create a small sparkline chart for growth rate trend"""
+    if not growth_rates or all(g is None for g in growth_rates):
+        return None
+
+    # Filter out None values
+    valid_data = [(m, g) for m, g in zip(month_labels, growth_rates) if g is not None]
+    if not valid_data:
+        return None
+
+    labels, values = zip(*valid_data)
+
+    fig = go.Figure()
+
+    # Add the line
+    fig.add_trace(go.Scatter(
+        x=list(labels),
+        y=list(values),
+        mode='lines+markers',
+        line=dict(color='#112347', width=2),
+        marker=dict(size=6, color='#112347'),
+        showlegend=False
+    ))
+
+    # Add consensus forecast line if available
+    if consensus_growth is not None:
+        fig.add_hline(
+            y=consensus_growth,
+            line_dash="dot",
+            line_color="#be3c3f",
+            line_width=2
+        )
+
+    fig.update_layout(
+        height=60,
+        margin=dict(l=5, r=5, t=5, b=15),
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        xaxis=dict(
+            showgrid=False,
+            showticklabels=True,
+            tickfont=dict(size=8),
+        ),
+        yaxis=dict(
+            showgrid=False,
+            showticklabels=False,
+            zeroline=True,
+            zerolinecolor='#ccc',
+            zerolinewidth=1
+        ),
+    )
+
+    return fig
+
 def calculate_probability_method1(df, rev_type, consensus_total):
     """Method 1: Model Forecast Distribution"""
     from scipy import stats
@@ -435,7 +562,7 @@ try:
     st.markdown('<div class="section-header">FY 2026 Growth Rate Summary</div>', unsafe_allow_html=True)
 
     # Column headers
-    header_col1, header_col2, header_col3, header_col4 = st.columns([2, 1, 1, 1.5])
+    header_col1, header_col2, header_col3, header_col4, header_col5 = st.columns([1.8, 0.8, 0.8, 1.5, 1.5])
     with header_col1:
         st.markdown("**Revenue Source**")
     with header_col2:
@@ -443,6 +570,8 @@ try:
     with header_col3:
         st.markdown("**Forecast**")
     with header_col4:
+        st.markdown("**Trend (4 mo)**")
+    with header_col5:
         st.markdown("**Status**")
 
     st.markdown("<hr style='margin: 5px 0; border: 1px solid #112347;'>", unsafe_allow_html=True)
@@ -459,8 +588,11 @@ try:
         # Calculate probability
         probability = calculate_average_probability(df, rev_key, consensus_total, consensus_growth)
 
-        # Create row with 4 columns
-        col1, col2, col3, col4 = st.columns([2, 1, 1, 1.5])
+        # Get monthly growth rates for sparkline
+        month_labels, growth_rates = get_monthly_growth_rates(df, rev_key)
+
+        # Create row with 5 columns
+        col1, col2, col3, col4, col5 = st.columns([1.8, 0.8, 0.8, 1.5, 1.5])
 
         with col1:
             st.markdown(f"**{display_name}**")
@@ -469,6 +601,12 @@ try:
         with col3:
             st.markdown(consensus_str)
         with col4:
+            sparkline_fig = create_sparkline(month_labels, growth_rates, consensus_growth)
+            if sparkline_fig:
+                st.plotly_chart(sparkline_fig, use_container_width=True, config={'displayModeBar': False})
+            else:
+                st.markdown("N/A")
+        with col5:
             status_html = get_status_html(probability)
             st.markdown(status_html, unsafe_allow_html=True)
 
