@@ -585,7 +585,11 @@ try:
         col1, col2, col3, col4, col5 = st.columns([1.8, 0.8, 0.8, 1.5, 1.5])
 
         with col1:
-            st.markdown(f"**{display_name}**")
+            # Bold and emphasize summary rows
+            if display_name in ['General Fund', 'Income Tax Fund', 'GF/ITF']:
+                st.markdown(f"<strong style='font-weight: 700;'>{display_name}</strong>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"{display_name}")
         with col2:
             st.markdown(current_str)
         with col3:
