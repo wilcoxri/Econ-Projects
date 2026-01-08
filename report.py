@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
 from datetime import datetime
 
 # Page configuration - optimized for printing
@@ -195,6 +197,246 @@ def get_last_data_date(df, rev_type):
             return latest_data.iloc[-1]['date']
     return None
 
+def calculate_probability_method1(df, rev_type, consensus_total):
+    """Method 1: Model Forecast Distribution"""
+    from scipy import stats
+    rev_data = df[df['rev'] == rev_type].copy()
+    year_col = 'y2026'
+    prior_year_col = 'y2025'
+
+    non_zero_mask = rev_data[year_col].abs() > 0.01
+    if not non_zero_mask.any():
+        return None
+
+    last_actual_idx = rev_data[non_zero_mask].index[-1]
+    last_actual_day = rev_data.loc[last_actual_idx, 'day']
+    last_actual_value = rev_data.loc[last_actual_idx, year_col]
+
+    prior_value = rev_data.loc[rev_data['day'] == last_actual_day, prior_year_col].iloc[0]
+    if abs(prior_value) < 0.01:
+        return None
+
+    growth_rate = (last_actual_value - prior_value) / prior_value
+
+    historical_years = ['2022', '2023', '2024', '2025']
+    historical_growth_rates = []
+
+    for i in range(len(historical_years) - 1):
+        y1, y2 = historical_years[i], historical_years[i + 1]
+        col1, col2 = f'y{y1}', f'y{y2}'
+
+        if col1 in rev_data.columns and col2 in rev_data.columns:
+            val1 = rev_data.loc[rev_data['day'] == last_actual_day, col1]
+            val2 = rev_data.loc[rev_data['day'] == last_actual_day, col2]
+
+            if len(val1) > 0 and len(val2) > 0:
+                v1, v2 = val1.iloc[0], val2.iloc[0]
+                if abs(v1) > 0.01:
+                    historical_growth_rates.append((v2 - v1) / v1)
+
+    growth_std = np.std(historical_growth_rates) if len(historical_growth_rates) > 1 else 0.05
+
+    if rev_data[prior_year_col].mean() < 0:
+        prior_year_total = rev_data[prior_year_col].min()
+    else:
+        prior_year_total = rev_data[prior_year_col].max()
+    prior_year_remaining = prior_year_total - prior_value
+    forecast_total = last_actual_value + (prior_year_remaining * (1 + growth_rate))
+    forecast_std = prior_year_remaining * growth_std
+
+    if forecast_std <= 0:
+        return None
+
+    z_score = (consensus_total - forecast_total) / forecast_std
+    probability = (1 - stats.norm.cdf(z_score)) * 100
+
+    return probability
+
+def calculate_probability_method2(df, rev_type, consensus_growth):
+    """Method 2: Growth Rate Distribution"""
+    from scipy import stats
+    rev_data = df[df['rev'] == rev_type].copy()
+    year_col = 'y2026'
+    prior_year_col = 'y2025'
+
+    non_zero_mask = rev_data[year_col].abs() > 0.01
+    if not non_zero_mask.any():
+        return None
+
+    last_actual_idx = rev_data[non_zero_mask].index[-1]
+    last_actual_day = rev_data.loc[last_actual_idx, 'day']
+    last_actual_value = rev_data.loc[last_actual_idx, year_col]
+
+    prior_value = rev_data.loc[rev_data['day'] == last_actual_day, prior_year_col].iloc[0]
+    if abs(prior_value) < 0.01:
+        return None
+
+    current_growth = (last_actual_value - prior_value) / prior_value * 100
+
+    historical_years = ['2022', '2023', '2024', '2025']
+    historical_growth_rates = []
+
+    for i in range(len(historical_years) - 1):
+        y1, y2 = historical_years[i], historical_years[i + 1]
+        col1, col2 = f'y{y1}', f'y{y2}'
+
+        if col1 in rev_data.columns and col2 in rev_data.columns:
+            if rev_data[col1].mean() < 0:
+                total1 = rev_data[col1].min()
+                total2 = rev_data[col2].min()
+            else:
+                total1 = rev_data[col1].max()
+                total2 = rev_data[col2].max()
+            if abs(total1) > 0.01:
+                historical_growth_rates.append((total2 - total1) / total1 * 100)
+
+    growth_std = np.std(historical_growth_rates) if len(historical_growth_rates) > 1 else 5.0
+
+    total_days = 365
+    days_remaining = total_days - last_actual_day
+    time_factor = np.sqrt(days_remaining / total_days)
+    adjusted_std = growth_std * time_factor
+
+    if adjusted_std <= 0:
+        return None
+
+    z_score = (consensus_growth - current_growth) / adjusted_std
+    probability = (1 - stats.norm.cdf(z_score)) * 100
+
+    return probability
+
+def calculate_probability_method3(df, rev_type, consensus_total, n_simulations=10000):
+    """Method 3: Monte Carlo Simulation"""
+    rev_data = df[df['rev'] == rev_type].copy()
+    year_col = 'y2026'
+    prior_year_col = 'y2025'
+
+    non_zero_mask = rev_data[year_col].abs() > 0.01
+    if not non_zero_mask.any():
+        return None
+
+    last_actual_idx = rev_data[non_zero_mask].index[-1]
+    last_actual_day = rev_data.loc[last_actual_idx, 'day']
+    last_actual_value = rev_data.loc[last_actual_idx, year_col]
+
+    prior_value = rev_data.loc[rev_data['day'] == last_actual_day, prior_year_col].iloc[0]
+    if rev_data[prior_year_col].mean() < 0:
+        prior_year_total = rev_data[prior_year_col].min()
+    else:
+        prior_year_total = rev_data[prior_year_col].max()
+
+    if abs(prior_value) < 0.01:
+        return None
+
+    current_growth = (last_actual_value - prior_value) / prior_value
+
+    historical_years = ['2022', '2023', '2024', '2025']
+    historical_growth_rates = []
+
+    for i in range(len(historical_years) - 1):
+        y1, y2 = historical_years[i], historical_years[i + 1]
+        col1, col2 = f'y{y1}', f'y{y2}'
+
+        if col1 in rev_data.columns and col2 in rev_data.columns:
+            if rev_data[col1].mean() < 0:
+                total1 = rev_data[col1].min()
+                total2 = rev_data[col2].min()
+            else:
+                total1 = rev_data[col1].max()
+                total2 = rev_data[col2].max()
+            if abs(total1) > 0.01:
+                historical_growth_rates.append((total2 - total1) / total1)
+
+    growth_std = np.std(historical_growth_rates) if len(historical_growth_rates) > 1 else 0.05
+
+    prior_year_remaining = prior_year_total - prior_value
+    days_remaining = 365 - last_actual_day
+    time_factor = np.sqrt(days_remaining / 365)
+    adjusted_std = growth_std * time_factor
+
+    simulated_totals = []
+    for _ in range(n_simulations):
+        simulated_growth = np.random.normal(current_growth, adjusted_std)
+        simulated_total = last_actual_value + (prior_year_remaining * (1 + simulated_growth))
+        simulated_totals.append(simulated_total)
+
+    probability = np.mean(np.array(simulated_totals) >= consensus_total) * 100
+    return probability
+
+def calculate_average_probability(df, rev_type, consensus_total, consensus_growth):
+    """Calculate average probability across three methods"""
+    if consensus_total is None or consensus_growth is None:
+        return None
+
+    prob1 = calculate_probability_method1(df, rev_type, consensus_total)
+    prob2 = calculate_probability_method2(df, rev_type, consensus_growth)
+    prob3 = calculate_probability_method3(df, rev_type, consensus_total)
+
+    valid_probs = [p for p in [prob1, prob2, prob3] if p is not None]
+    if len(valid_probs) > 0:
+        return np.mean(valid_probs)
+    return None
+
+def create_status_gauge(probability, rev_name):
+    """Create a simplified gauge showing Below/On/Above Target"""
+    if probability is None:
+        return None
+
+    # Determine status and color
+    if probability < 50:
+        status = "Below Target"
+        color = "#e74c3c"  # Red
+    elif probability <= 75:
+        status = "On Target"
+        color = "#f39c12"  # Orange
+    else:
+        status = "Above Target"
+        color = "#2ecc71"  # Green
+
+    fig = go.Figure(go.Indicator(
+        mode="gauge",
+        value=probability,
+        domain={'x': [0, 1], 'y': [0, 1]},
+        gauge={
+            'axis': {
+                'range': [0, 100],
+                'showticklabels': False,
+                'tickwidth': 0,
+            },
+            'bar': {'color': color, 'thickness': 0.3},
+            'bgcolor': "white",
+            'borderwidth': 1,
+            'bordercolor': "lightgray",
+            'steps': [
+                {'range': [0, 50], 'color': '#ffebee'},
+                {'range': [50, 75], 'color': '#fff8e1'},
+                {'range': [75, 100], 'color': '#e8f5e9'}
+            ],
+            'threshold': {
+                'line': {'color': color, 'width': 3},
+                'thickness': 0.75,
+                'value': probability
+            }
+        }
+    ))
+
+    fig.update_layout(
+        height=100,
+        margin=dict(l=10, r=10, t=30, b=10),
+        paper_bgcolor="white",
+        font={'family': "Arial"},
+        title={
+            'text': f"<b>{status}</b>",
+            'y': 0.85,
+            'x': 0.5,
+            'xanchor': 'center',
+            'yanchor': 'top',
+            'font': {'size': 12, 'color': color}
+        }
+    )
+
+    return fig
+
 # Load data
 try:
     df, year_cols = load_data()
@@ -221,35 +463,35 @@ try:
     # Build metrics table
     st.markdown('<div class="section-header">FY 2026 Growth Rate Summary</div>', unsafe_allow_html=True)
 
-    # Build data for table
-    table_data = []
+    # Display each revenue type as a row with gauge
     for display_name, rev_key in revenue_types:
         current_growth = get_current_growth(df, rev_key)
         consensus_growth = official_growth_forecast.get(rev_key, None)
+        consensus_total = official_level_forecast.get(rev_key, None)
 
         current_str = f"{current_growth:+.2f}%" if current_growth is not None else "N/A"
         consensus_str = f"{consensus_growth:+.2f}%" if consensus_growth is not None else "N/A"
 
-        if current_growth is not None and consensus_growth is not None:
-            diff = current_growth - consensus_growth
-            diff_str = f"{diff:+.2f}%"
-        else:
-            diff_str = "N/A"
+        # Calculate probability
+        probability = calculate_average_probability(df, rev_key, consensus_total, consensus_growth)
 
-        table_data.append({
-            "Revenue Source": display_name,
-            "Current YTD Growth": current_str,
-            "Consensus Forecast": consensus_str,
-            "Difference": diff_str
-        })
+        # Create row with 4 columns
+        col1, col2, col3, col4 = st.columns([2, 1, 1, 1.5])
 
-    # Create DataFrame and display
-    table_df = pd.DataFrame(table_data)
-    st.dataframe(
-        table_df,
-        use_container_width=True,
-        hide_index=True
-    )
+        with col1:
+            st.markdown(f"**{display_name}**")
+        with col2:
+            st.markdown(f"Current: {current_str}")
+        with col3:
+            st.markdown(f"Forecast: {consensus_str}")
+        with col4:
+            if probability is not None:
+                gauge_fig = create_status_gauge(probability, display_name)
+                st.plotly_chart(gauge_fig, use_container_width=True, config={'displayModeBar': False})
+            else:
+                st.markdown("N/A")
+
+    st.markdown("---")
 
     # Commentary sections
     col1, col2 = st.columns(2)
