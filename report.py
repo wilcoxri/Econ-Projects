@@ -452,19 +452,32 @@ try:
 
     # Revenue types to display
     revenue_types = [
-        ('General Fund', 'General Fund'),
-        ('Income Tax Fund', 'Income Tax Fund'),
-        ('Sales and Use Tax (GF)', 'Sales and Use Tax (GF)'),
         ('Sales and Use Tax (Total)', 'Sales and Use Tax (Total)'),
+        ('Sales and Use Tax (GF)', 'Sales and Use Tax (GF)'),
+        ('General Fund', 'General Fund'),
         ('Individual Income Tax', 'Individual Income Tax'),
         ('Corporate Tax & Gross Receipts', 'Corporate Tax & Gross Receipts'),
+        ('Income Tax Fund', 'Income Tax Fund'),
     ]
 
     # Build metrics table
     st.markdown('<div class="section-header">FY 2026 Growth Rate Summary</div>', unsafe_allow_html=True)
 
+    # Column headers
+    header_col1, header_col2, header_col3, header_col4 = st.columns([2, 1, 1, 1.5])
+    with header_col1:
+        st.markdown("**Revenue Source**")
+    with header_col2:
+        st.markdown("**Current YTD**")
+    with header_col3:
+        st.markdown("**Forecast**")
+    with header_col4:
+        st.markdown("**Status**")
+
+    st.markdown("<hr style='margin: 5px 0; border: 1px solid #112347;'>", unsafe_allow_html=True)
+
     # Display each revenue type as a row with gauge
-    for display_name, rev_key in revenue_types:
+    for i, (display_name, rev_key) in enumerate(revenue_types):
         current_growth = get_current_growth(df, rev_key)
         consensus_growth = official_growth_forecast.get(rev_key, None)
         consensus_total = official_level_forecast.get(rev_key, None)
@@ -481,15 +494,18 @@ try:
         with col1:
             st.markdown(f"**{display_name}**")
         with col2:
-            st.markdown(f"Current: {current_str}")
+            st.markdown(current_str)
         with col3:
-            st.markdown(f"Forecast: {consensus_str}")
+            st.markdown(consensus_str)
         with col4:
             if probability is not None:
                 gauge_fig = create_status_gauge(probability, display_name)
                 st.plotly_chart(gauge_fig, use_container_width=True, config={'displayModeBar': False})
             else:
                 st.markdown("N/A")
+
+        # Add separator line between rows
+        st.markdown("<hr style='margin: 2px 0; border: 0.5px solid #ddd;'>", unsafe_allow_html=True)
 
     st.markdown("---")
 
