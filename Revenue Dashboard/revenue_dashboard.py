@@ -7,7 +7,7 @@ import numpy as np
 
 # Page configuration
 st.set_page_config(
-    page_title="GOPB Revenue Collections Dashboard",
+    page_title="Revenue Collections Dashboard",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -92,7 +92,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # Title and description
-st.title("GOPB Revenue Collections Dashboard")
+st.title("Revenue Collections Dashboard")
 st.markdown("---")
 
 # Load official forecast data
