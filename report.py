@@ -167,6 +167,17 @@ def load_data():
         income_tax_fund_data = income_tax_fund_data[['rev', 'day', 'date'] + year_cols]
         df = pd.concat([df, income_tax_fund_data], ignore_index=True)
 
+    # Create GF/ITF (General Fund + Income Tax Fund combined)
+    gf_itf_components = ['General Fund', 'Income Tax Fund']
+    gf_itf_component_data = df[df['rev'].isin(gf_itf_components)].copy()
+    if len(gf_itf_component_data) > 0:
+        gf_itf_data = gf_itf_component_data.groupby(['day', 'date']).agg({
+            **{col: 'sum' for col in year_cols}
+        }).reset_index()
+        gf_itf_data['rev'] = 'GF/ITF'
+        gf_itf_data = gf_itf_data[['rev', 'day', 'date'] + year_cols]
+        df = pd.concat([df, gf_itf_data], ignore_index=True)
+
     return df, year_cols
 
 def get_current_growth(df, rev_type):
